@@ -1,97 +1,55 @@
-import itertools
-import re
-
-def evaluate(expression, assignment):
-    expression = expression.replace("<=>", "==")
-    expression = expression.replace("=>", "<=")
-    expression = expression.replace("^", " and ")
-    expression = expression.replace("v", " or ")
-    expression = expression.replace("~", " not ")
-
-    for symbol, value in assignment.items():
-        expression = re.sub(r'\b' + symbol + r'\b', str(value), expression)
-
-    return bool(eval(expression))
+from itertools import product
 
 
-def get_symbols(kb, query):
-    expressions = kb + " " + query
-    symbols = set(re.findall(r'\b[A-Z]\b', expressions))
-    return sorted(symbols)
+def implies(p, q):
+    return (not p) or q
 
 
-def tt_check_all(kb, query, symbols, assignment, results):
-    if not symbols:
-        kb_value = evaluate(kb, assignment)
-        query_value = evaluate(query, assignment)
+def evaluate_kb(model):
+    P = model["P"]
+    Q = model["Q"]
+    R = model["R"]
 
-        results.append((assignment.copy(), kb_value, query_value))
+    sentence1 = implies(Q, P)
+    sentence2 = implies(P, not Q)
+    sentence3 = Q or R
 
-        if kb_value:
-            return query_value
-        return True
-
-    symbol = symbols[0]
-    rest = symbols[1:]
-
-    assignment[symbol] = True
-    result1 = tt_check_all(kb, query, rest, assignment, results)
-
-    assignment[symbol] = False
-    result2 = tt_check_all(kb, query, rest, assignment, results)
-
-    del assignment[symbol]
-
-    return result1 and result2
+    return sentence1 and sentence2 and sentence3
 
 
-def tt_entails(kb, query):
-    symbols = get_symbols(kb, query)
-    results = []
+def evaluate_query(model, query):
+    P = model["P"]
+    Q = model["Q"]
+    R = model["R"]
 
-    print("\n" + "=" * 65)
-    print("             TRUTH TABLE ENTAILMENT")
-    print("=" * 65)
+    if query == "R":
+        return R
 
-    print("\nKnowledge Base:", kb)
-    print("Query         :", query)
-    print("Symbols       :", ", ".join(symbols))
+    if query == "R -> P":
+        return implies(R, P)
 
-    entailment = tt_check_all(kb, query, symbols, {}, results)
-
-    print("\n" + "-" * 65)
-    print("TRUTH TABLE")
-    print("-" * 65)
-
-    for symbol in symbols:
-        print(f"{symbol:^8}", end="")
-
-    print(f"{'KB':^10}{'QUERY':^10}")
-    print("-" * 65)
-
-    for assignment, kb_value, query_value in results:
-        for symbol in symbols:
-            print(f"{str(assignment[symbol]):^8}", end="")
-
-        print(f"{str(kb_value):^10}{str(query_value):^10}")
-
-    print("-" * 65)
-
-    print("\nRESULT:")
-    if entailment:
-        print("KB ENTAILS QUERY")
-        print("KB |= QUERY")
-    else:
-        print("KB DOES NOT ENTAIL QUERY")
-        print("KB |/= QUERY")
-
-    print("\n" + "=" * 65)
-    print("Name : Dhanush")
-    print("USN  : 1WN24CS0091")
-    print("=" * 65)
+    if query == "Q -> R":
+        return implies(Q, R)
 
 
-kb = input("Enter Knowledge Base: ")
-query = input("Enter Query: ")
+def tt_entails(query):
 
-tt_entails(kb, query)
+    symbols = ["P", "Q", "R"]
+
+    for values in product([False, True], repeat=3):
+
+        model = dict(zip(symbols, values))
+
+        kb_true = evaluate_kb(model)
+
+        if kb_true:
+            if not evaluate_query(model, query):
+                return False
+
+    return True
+
+
+queries = ["R", "R -> P", "Q -> R"]
+
+for query in queries:
+    print(query, ":", tt_entails(query))
